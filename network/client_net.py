@@ -3,6 +3,8 @@
 
 import socket #
 import os
+from crypto.aes_utils import aes_utils
+
 
 class client_net:
     def __init__(self, serverIP, serverPort):
@@ -10,6 +12,7 @@ class client_net:
         self.serverPort = serverPort
         self.serverSocketAddress = (serverIP, serverPort)
         self.clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Af_inet is for ipv4 addresses and Sock_stream is for TCP connections
+        self.symmetricKeyUtils = aes_utils()
     
     def connectToServerSocket(self):
         # connect to the server socket through .connect()
@@ -20,7 +23,7 @@ class client_net:
         #sending the file name
         fileName = os.path.basename(filePath)
         self.clientSocket.sendall((fileName + '\n').encode())
-    
+
         #sending the file size
         fileSize = os.path.getsize(filePath)
         self.clientSocket.sendall((str(fileSize) + '\n').encode())
@@ -30,6 +33,12 @@ class client_net:
         with open(filePath, 'rb') as file:
             while True:
                 data = file.read(chunksSize)
-                if not data:
+                encrypted_data = self.encryptData(data)
+                if not encrypted_data:
                     break
-                self.clientSocket.sendall(data)
+                self.clientSocket.sendall(encrypted_data)
+
+    def encryptData(self, data):
+        return self.symmetricKeyUtils.encryptMessage(data)
+ 
+
