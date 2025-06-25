@@ -1,11 +1,14 @@
 from cryptography.fernet import Fernet
+import os
 
 class aes_utils:
     symmetricFile = "symmetric_key_file.txt"
 
     def __init__(self):
         #Create a txt file for storing the key and store the key inside it. 
-        self.createKeyFile()
+        # only create if it doesnt exist
+        if not os.path.exists(self.symmetricFile):
+            self.createKeyFile()
         # load the key from the text file into the symmetric key
         self.symmetricKey = self.loadKeyFromFile()
 
@@ -26,3 +29,10 @@ class aes_utils:
         engine = Fernet(self.symmetricKey) # initiliase the Fernet object with the key used for encryption
         encryptedData = engine.encrypt(data) 
         return encryptedData
+
+    def decryptMessage(self, data):
+        # decrypts the message using Fernet class's decrypt method and returns the decrypted data
+        engine = Fernet(self.symmetricKey)
+        decryptedData = engine.decrypt(data)
+        return decryptedData
+    

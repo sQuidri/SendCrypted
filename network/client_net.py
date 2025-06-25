@@ -3,6 +3,7 @@
 
 import socket #
 import os
+import struct
 from crypto.aes_utils import aes_utils
 
 
@@ -17,9 +18,8 @@ class client_net:
     def connectToServerSocket(self):
         # connect to the server socket through .connect()
         self.clientSocket.connect(self.serverSocketAddress)
-    
-    def sendingFilesToServer(self, filePath):
 
+    def sendingFilesToServer(self, filePath):        
         #sending the file name
         fileName = os.path.basename(filePath)
         self.clientSocket.sendall((fileName + '\n').encode())
@@ -30,15 +30,21 @@ class client_net:
 
         #loop that reads the file in chunks and sends one chunk at a time
         chunksSize = 1024
+        total_encrypted_sent = 0
         with open(filePath, 'rb') as file:
             while True:
                 data = file.read(chunksSize)
-                encrypted_data = self.encryptData(data)
-                if not encrypted_data:
+                if not data:
                     break
+                encrypted_data = self.encryptData(data)
+                # Send the length of the encrypted chunk (4 bytes, big-endian)
+                self.clientSocket.sendall(struct.pack('>I', len(encrypted_data)))
+                # Send the encrypted chunk itself
                 self.clientSocket.sendall(encrypted_data)
+                total_encrypted_sent += len(encrypted_data)
+        print(f"[Client] Total encrypted bytes sent: {total_encrypted_sent}")
 
     def encryptData(self, data):
         return self.symmetricKeyUtils.encryptMessage(data)
- 
+
 

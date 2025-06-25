@@ -1,5 +1,7 @@
 import socket
 import os
+import struct
+from crypto.aes_utils import aes_utils
 
 class server_net:
     def __init__(self, port, save_dir="received_files"):
@@ -21,11 +23,11 @@ class server_net:
         print(f"[Server] Connected by {addr[0]}:{addr[1]}")
 
         # receive the file name
-        file_name = self.receive_line(conn)
+        file_name = self.recv_helper(conn)
         print(f"[Server] Receiving file: {file_name}")
 
         # receive the file size
-        file_size = int(self.receive_line(conn))
+        file_size = int(self.recv_helper(conn))
         print(f"[Server] File size: {file_size} bytes")
 
         file_path = os.path.join(self.save_dir, file_name)
@@ -33,25 +35,53 @@ class server_net:
         # open the file in binary write mode and receive the file data in chunks
         with open(file_path, 'wb') as f:
             bytes_received = 0
+            total_encrypted_received = 0
+            symmetricKeyUtils = aes_utils()
             while bytes_received < file_size:
-                chunk = conn.recv(min(1024, file_size - bytes_received))
+                # read 4 bytes for the length of the encrypted chunk
+                raw_len = self.recv_helper(conn, 4)
+                if not raw_len:
+                    break
+                enc_chunk_len = struct.unpack('>I', raw_len)[0]
+                if enc_chunk_len == 0:
+                    break
+                # read the encrypted chunk
+                chunk = self.recv_helper(conn, enc_chunk_len)
                 if not chunk:
                     break
-                f.write(chunk)
-                bytes_received += len(chunk)
-        print(f"[Server] File saved to {file_path}")
+                total_encrypted_received += len(chunk)
+                decrypted_data = symmetricKeyUtils.decryptMessage(chunk)
+                f.write(decrypted_data)
+                bytes_received += len(decrypted_data)
+        print(f"[Server] Total encrypted bytes received: {total_encrypted_received}")
+        print(f"[Server] Total decrypted bytes written: {bytes_received}")
 
         # close the connection
         conn.close()
         print("[Server] Connection closed.")
+        try:
+            os.remove(aes_utils.symmetricFile)
+            print(f"[Server] Deleted symmetric key file: {aes_utils.symmetricFile}")
+        except Exception as e:
+            print(f"[Server][WARNING] Could not delete symmetric key file: {e}")
 
-    def receive_line(self, conn):
-        # helper function for receiving a line of text from the connection
-        line = b""
-        while True:
-            char = conn.recv(1)
-            # check for newline character or end of stream
-            if char == b'\n' or not char:
-                break
-            line += char
-        return line.decode().strip()
+    def recv_helper(self, conn, n=None):
+        # helper function to receive data from the connection
+        if n is None:
+            # read until newline or EOF
+            line = b""
+            while True:
+                char = conn.recv(1)
+                if char == b'\n' or not char:
+                    break
+                line += char
+            return line.decode().strip()
+        else:
+            # read n bytes
+            data = b''
+            while len(data) < n:
+                packet = conn.recv(n - len(data))
+                if not packet:
+                    return None
+                data += packet
+            return data

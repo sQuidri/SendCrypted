@@ -60,7 +60,8 @@ class SendCryptedApp(tk.Tk):
 
     def server_start(self):
         mode = self.mode.get()
-        ip = self.ip.get()
+        # ip = self.ip.get()
+        ip = "127.0.0.1"
         port = self.port.get()
         file = self.file_path.get()
 
@@ -88,7 +89,7 @@ class SendCryptedApp(tk.Tk):
             client.sendingFilesToServer(file)
             self.after(0, lambda: messagebox.showinfo("Success", "File sent successfully!"))
         except Exception as e:
-            self.after(0, lambda: messagebox.showerror("Error", f"Failed to send file: {e}"))
+            self.after(0, lambda e=e: messagebox.showerror("Error", f"Failed to send file: {e}"))
 
     def start_server(self, port):
         try:
@@ -96,7 +97,10 @@ class SendCryptedApp(tk.Tk):
             server.accept_and_receive_file()
             self.after(0, lambda: messagebox.showinfo("Success", "File received successfully!"))
         except Exception as e:
-            self.after(0, lambda: messagebox.showerror("Error", f"Server error: {e}"))
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[Server][ERROR] {e}\nTraceback:\n{tb}")
+            self.after(0, lambda e=e, tb=tb: messagebox.showerror("Error", f"Server error: {e}\nSee console for traceback."))
 
 if __name__ == "__main__":
     app = SendCryptedApp()
