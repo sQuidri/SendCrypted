@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import threading
+from network.client_net import client_net
+from network.server_net import server_net
 
 class SendCryptedApp(tk.Tk):
     def __init__(self):
@@ -13,7 +16,6 @@ class SendCryptedApp(tk.Tk):
         self.port = tk.StringVar(value="5000")
         self.file_path = tk.StringVar()
         self.modals()
-        # self.update_fields()
 
     def modals(self):
         tk.Label(self, text="Mode:").pack(pady=(20,5))
@@ -36,7 +38,8 @@ class SendCryptedApp(tk.Tk):
 
         self.action_button = tk.Button(self, text="Send File", command=self.server_start)
         self.action_button.pack(pady=(20, 0))
-    
+        self.update_fields()
+
     def update_fields(self):
         mode = self.mode.get()
         if mode == "Client":
@@ -54,7 +57,7 @@ class SendCryptedApp(tk.Tk):
         file_path = filedialog.askopenfilename(title="Select a file to send")
         if file_path:
             self.file_path.set(file_path)
-    
+
     def server_start(self):
         mode = self.mode.get()
         ip = self.ip.get()
@@ -64,7 +67,7 @@ class SendCryptedApp(tk.Tk):
         if not port.isdigit() or not (1024 <= int(port) <= 65535):
             messagebox.showerror("Error", "Port must be a number between 1024 and 65535.")
             return
-        
+
         if mode == "Client":
             if not ip:
                 messagebox.showerror("Error", "IP address is required for Client mode.")
@@ -73,10 +76,27 @@ class SendCryptedApp(tk.Tk):
                 messagebox.showerror("Error", "File path is required.")
                 return
             messagebox.showinfo("Info", f"Sending file '{file}' to {ip}:{port}")
-            # TODO: File Sending Logic and Encryption
+            threading.Thread(target=self.send_file, args=(ip, int(port), file), daemon=True).start()
         else:
             messagebox.showinfo("Info", f"Starting server on port {port}")
-            # TODO: Server Listening Logic
+            threading.Thread(target=self.start_server, args=(int(port),), daemon=True).start()
+
+    def send_file(self, ip, port, file):
+        try:
+            client = client_net(ip, port)
+            client.connectToServerSocket()
+            client.sendingFilesToServer(file)
+            self.after(0, lambda: messagebox.showinfo("Success", "File sent successfully!"))
+        except Exception as e:
+            self.after(0, lambda: messagebox.showerror("Error", f"Failed to send file: {e}"))
+
+    def start_server(self, port):
+        try:
+            server = server_net(port=port)
+            server.accept_and_receive_file()
+            self.after(0, lambda: messagebox.showinfo("Success", "File received successfully!"))
+        except Exception as e:
+            self.after(0, lambda: messagebox.showerror("Error", f"Server error: {e}"))
 
 if __name__ == "__main__":
     app = SendCryptedApp()
