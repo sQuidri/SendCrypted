@@ -5,6 +5,8 @@ import socket #
 import os
 import struct
 from crypto.aes_utils import aes_utils
+from crypto.rsa_utils import rsa_utils
+
 
 
 class client_net:
@@ -14,12 +16,18 @@ class client_net:
         self.serverSocketAddress = (serverIP, serverPort)
         self.clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Af_inet is for ipv4 addresses and Sock_stream is for TCP connections
         self.symmetricKeyUtils = aes_utils()
+        self.rsaHelper = rsa_utils()
     
     def connectToServerSocket(self):
         # connect to the server socket through .connect()
         self.clientSocket.connect(self.serverSocketAddress)
+       
+    def sendingFilesToServer(self, filePath):   
 
-    def sendingFilesToServer(self, filePath):        
+        #encrypt the key and send it
+        encryptedSymmetricKey = self.symmetricKeyEncryption()
+        self.clientSocket.sendall(encryptedSymmetricKey)
+
         #sending the file name
         fileName = os.path.basename(filePath)
         self.clientSocket.sendall((fileName + '\n').encode())
@@ -47,4 +55,8 @@ class client_net:
     def encryptData(self, data):
         return self.symmetricKeyUtils.encryptMessage(data)
 
+    def symmetricKeyEncryption(self):
+        symmetricKey = self.symmetricKeyUtils.loadKeyFromFile()
+        encryptedKey = self.rsaHelper.encryption(symmetricKey)
+        return encryptedKey
 
